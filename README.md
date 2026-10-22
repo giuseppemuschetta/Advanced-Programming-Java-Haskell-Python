@@ -103,15 +103,15 @@ The **Matching Pairs** game (also known as *Concentration*): eight cards lie fac
 
 ```mermaid
 flowchart LR
-    Board(["Board<br/>JFrame"]) -- "ShuffleEvent" --> Controller
-    Board -- "ShuffleEvent" --> Counter
-    Board -- "ShuffleEvent" --> Card
-    Card(["Card ×2N<br/>JButton"]) -. "vetoable change<br/>of state" .-> Controller(["Controller<br/>JLabel"])
-    Card -- "property change<br/>of state" --> Controller
-    Card -- "property change<br/>of state" --> Counter(["Counter<br/>JLabel"])
-    Controller -- "MatchedEvent<br/>(after 0.5 s)" --> Card
-    Counter -- "flipCount" --> Challenge(["Challenge<br/>JLabel"])
-    Controller -- "gameFinished" --> Challenge
+    Board["Board<br/>JFrame"] -->|ShuffleEvent| Card["Card ×2N<br/>JButton"]
+    Board -->|"ShuffleEvent (first)"| Controller["Controller<br/>JLabel"]
+    Board -->|ShuffleEvent| Counter["Counter<br/>JLabel"]
+    Card -.->|"vetoable change of state"| Controller
+    Card -->|"property change of state"| Controller
+    Controller -->|"MatchedEvent (after 0.5 s)"| Card
+    Card -->|"property change of state"| Counter
+    Counter -->|flipCount| Challenge["Challenge<br/>JLabel"]
+    Controller -->|gameFinished| Challenge
 ```
 
 ### The rules live in the veto
@@ -124,12 +124,11 @@ stateDiagram-v2
     [*] --> FACE_DOWN
     FACE_DOWN --> FACE_UP: click, if fewer than 2 cards are up
     FACE_UP --> EXCLUDED: matched event (true)
-    FACE_UP --> FACE_DOWN: matched event (false)
-    FACE_UP --> FACE_UP: click → vetoed
-    EXCLUDED --> EXCLUDED: click → vetoed
-    EXCLUDED --> FACE_DOWN: shuffle (new round)
-    FACE_UP --> FACE_DOWN: shuffle (new round)
+    FACE_UP --> FACE_DOWN: matched event (false) or shuffle
+    EXCLUDED --> FACE_DOWN: shuffle
 ```
+
+A click on a face-up or excluded card asks for a change that the `Controller` always vetoes, so it leaves the state as it is.
 
 | Requested change | Allowed when | Otherwise |
 |:---|:---|:---|
@@ -196,14 +195,15 @@ public int testMin(int a, int b) { return (a < b) ? a : b; }
 For each method it calls `Report.report(...)` (a class provided with the assignment, used unchanged) exactly once, with one of four outcomes:
 
 ```mermaid
-flowchart LR
-    A["@Testable method<br/>(non-private, instance)"] --> B{"argTypes / argValues<br/>match the parameters<br/>and convert?"}
-    B -- no --> W1["WrongArgs"]
-    B -- yes --> C{"resType / resVal<br/>match the return type<br/>and convert?"}
-    C -- no --> W2["WrongResultType"]
-    C -- yes --> D["invoke"] --> E{"result equals<br/>the expected one?"}
-    E -- no --> F["TestFailed"]
-    E -- yes --> S["TestSucceeded"]
+flowchart TD
+    A["@Testable method"] --> B{"arguments<br/>valid?"}
+    B -- no --> W1["WrongArgs<br/>(not invoked)"]
+    B -- yes --> C{"result type<br/>valid?"}
+    C -- no --> W2["WrongResultType<br/>(not invoked)"]
+    C -- yes --> D["invoke"]
+    D --> E{"result as<br/>expected?"}
+    E -- "no / exception" --> F["TestFailed"]
+    E -- yes --> T["TestSucceeded"]
 ```
 
 In the first two cases the method is **never invoked**. Types correspond both to primitives and to their wrappers (`"int"` ↔ `int`/`Integer`, `"bool"` ↔ `boolean`/`Boolean`, ...); booleans must be written exactly `"true"` or `"false"`; a method that throws an exception is reported as `TestFailed`; a `@Testable` method without `@Specification` gets the default specification (no arguments, no result).
